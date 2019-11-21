@@ -17,21 +17,11 @@ sourcePositions = sofa.getVariableValue('SourcePosition') #sofa.getPositionVaria
 sP = sourcePositions.filled(sourcePositions.mean()) #To unmask the masked array and convert it into a ndarray
 audios = sofa.getDataIR() # Read the data and create data array (8802, 2, 256)
 
-
-
 #receiverPos = sofa.getReceiverPositionValues() to get the receiver ears position
 sfreq = int(sofa.getSamplingRate()) #samplingRateUnits = sofa.getSamplingRateUnits() if I want the units of the sampling frequency
 numfiles = len(audios)
 numchannels = len(audios[0])
 numsamples = len(audios[0][0])
-
-""" #Plot of the 1st audio file by splitting left and right
-plt.plot(audios[0][0], label="left", linewidth=0.5,  marker='o', markersize=1)
-plt.plot(audios[0][1], label="right", linewidth=0.5,  marker='o', markersize=1)
-plt.grid()
-plt.legend()
-plt.show() # It's pretty clear, based on the ITD and ILD, that the source is located at the left, which on the other hand confirms the sourcePositions[0] information
-"""
 """ #RENDER WITH A FILE AND SAVING IT
 data, samplerate = sf.read('C:/Users/pablo/Desktop/365061__ryntjie__pouring-cat-food-into-a-plastic-bowl.wav') #Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
 binaural_left = scipy.signal.fftconvolve(data,hrtf[0]) #Convolve it with the hrtf
@@ -44,11 +34,6 @@ sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', binaural, samplerate) #
 
 #ARRAY CREATION
 #Variable initialization
-"""
-time = np.zeros((numfiles, 256))
-peaks = np.zeros((numfiles, 2))
-tpeaks = np.zeros((numfiles, 2))
-"""
 codebook_f = np.zeros((numfiles, numsamples))
 codebook = np.zeros((numfiles, numchannels, numsamples),dtype=complex)
 for x in range(numfiles): 
@@ -57,17 +42,6 @@ for x in range(numfiles):
     #Codebook of HRTFs, ordered by audiofile
     codebook[x,0] = np.fft.fft(audios[x,0])
     codebook[x,1] = np.fft.fft(audios[x,1])
-
-"""
-#3D array for audios + time array
-time[x] = np.arange(0,int(len(audios[x,0]))) / sfreq #Time array, ordered by audiofile
-#Previous ILD & ITD work
-peaks[x] = np.amax(audios[x], axis=1) #Peak array, ordered by audiofile
-extractionL, = np.where(audios[x,0]==peaks[x,0])
-extractionR, = np.where(audios[x,1]==peaks[x,1])
-tpeaks[x] = [max(extractionL),max(extractionR)] #Time position array, ordered by audiofile
-x+=1
-"""
 
 
 
