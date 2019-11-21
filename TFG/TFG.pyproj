@@ -2,16 +2,15 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>88004488-da99-4406-81f1-e4e0afd45fc4</ProjectGuid>
-    <ProjectHome>
-    </ProjectHome>
+    <ProjectGuid>87c1a671-2985-4313-aa9b-203f4d6988a6</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
     <StartupFile>TFG.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>TFG</Name>
-    <RootNamespace>TFG1_codebooks</RootNamespace>
+    <RootNamespace>TFG</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
