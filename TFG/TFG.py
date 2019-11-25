@@ -1,6 +1,8 @@
 import numpy as np
 import math as mt
 import matplotlib.pyplot as plt
+import scipy.signal
+import soundfile as sf
 from pysofaconventions import *
 
 
@@ -16,27 +18,46 @@ else:
 sourcePositions = sofa.getVariableValue('SourcePosition') #sofa.getPositionVariableInfo('SourcePosition') prints the info (units, coordinates): ('degree, degree, meter', 'spherical')
 sP = sourcePositions.filled(sourcePositions.mean()) #To unmask the masked array and convert it into a ndarray
 audios = sofa.getDataIR() # Read the data and create data array (8802, 2, 256)
-
 #receiverPos = sofa.getReceiverPositionValues() to get the receiver ears position
 sfreq = int(sofa.getSamplingRate()) #samplingRateUnits = sofa.getSamplingRateUnits() if I want the units of the sampling frequency
 numfiles = len(audios)
 numchannels = len(audios[0])
 numsamples = len(audios[0][0])
-""" #RENDER WITH A FILE AND SAVING IT
-data, samplerate = sf.read('C:/Users/pablo/Desktop/365061__ryntjie__pouring-cat-food-into-a-plastic-bowl.wav') #Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
-binaural_left = scipy.signal.fftconvolve(data,hrtf[0]) #Convolve it with the hrtf
-binaural_right = scipy.signal.fftconvolve(data,hrtf[1])
-binaural = np.asarray([binaural_left, binaural_right]).swapaxes(-1,0)
-sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', binaural, samplerate) # Write to a file
-"""
 
 
 
-#ARRAY CREATION
-#Variable initialization
+#RENDER WITH A FILE TO CREATE BINAURAL AUDIO
+data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\LNG_VocalLaugh_25.wav') #Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
+binaural_L = scipy.signal.fftconvolve(data,audios[2211,0,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
+binaural_R = scipy.signal.fftconvolve(data,audios[2211,1,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
+#2211 for 90º, 1123 for 45º, 3103 for 135º, 5523 for -45º
+binaural = np.asarray([binaural_L, binaural_R]) #.swapaxes(-1,0) to put the L/R channel first
+#sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', abs(binaural), samplerate) #Save into a WAV file
+
+
+
+#DFT WINDOWING
+BINAURAL_L = scipy.signal.stft(binaural, samplerate, nperseg=1000) #STFT of the binaural input to convert it to the time-freq domain 
+BINAURAL_R = scipy.signal.stft(binaural, samplerate, nperseg=1000) #STFT of the binaural input to convert it to the time-freq domain 
+BINAURAL = np.asarray([binaural_L, binaural_R])
+
+
+
+#PEAKS ARRAYS and CODEBOOK CREATION
+time = np.zeros((numfiles, 256))
+peaks = np.zeros((numfiles, 2))
+tpeaks = np.zeros((numfiles, 2))
 codebook_f = np.zeros((numfiles, numsamples))
 codebook = np.zeros((numfiles, numchannels, numsamples),dtype=complex)
 for x in range(numfiles): 
+    #3D array for audios + time array
+    time[x] = np.arange(0,int(len(audios[x,0]))) / sfreq #Time array, ordered by audiofile
+    #Previous ILD & ITD work (from input audio)
+    peaks[x] = np.amax(audios[x], axis=1) #Peak array, ordered by audiofile
+    extractionL, = np.where(audios[x,0]==peaks[x,0])
+    extractionR, = np.where(audios[x,1]==peaks[x,1])
+    tpeaks[x] = [max(extractionL),max(extractionR)] #Time position array, ordered by audiofile
+
     #DFT sample frequencies, ordered by audiofile
     codebook_f[x] = np.fft.fftfreq(audios[x,0].shape[-1]) #L and R share the same values
     #Codebook of HRTFs, ordered by audiofile
@@ -45,43 +66,64 @@ for x in range(numfiles):
 
 
 
-#RULE OUT ELEVATION
+#ILD and IPD CALCULATION
 #Taking only samples with zero elevation
 ind_azim = []
+ILD = []
+ITD = []
+IPD = []
 azimuth = []
+idealazimuth = []
 for x in range(numfiles):
     if (sP[:][x][1] == 0) == True:
         ind_azim.append(x)
-ILD = np.zeros((int(numsamples/2), 360)) #Only of the first half of samples as it's symmetrical
-IPD = np.zeros((int(numsamples/2), 360)) #Only of the first half of samples as it's symmetrical
+ILDc = np.zeros((360, int(numsamples/2))) #Only of the first half of samples as it's symmetrical
+IPDc = np.zeros((360, int(numsamples/2))) #Only of the first half of samples as it's symmetrical
 x=0
 for a in ind_azim:
+    azimuth.append(float(sP[a][0])) #Azimuth array [0,360)
     sPaz = float(sP[a][0])
     if sPaz > 180: #Quadrant correction
         sPaz = int(-(sPaz-180))
-    azimuth.append(sPaz) #Create array with the ideal angles for the plot
+    idealazimuth.append(sPaz) #Azimuth array [-180,180)
+    
+    if (azimuth[x]).is_integer() == True:
+        ILD.append(-20 * mt.log10(abs(peaks[a,0]/peaks[a,1]))) #Peak level difference (in dB). Negative to make the negative side of the grids the right ear as in https://www.york.ac.uk/sadie-project/database.html
+        ITD.append(10**(-4)*(tpeaks[a,0]-tpeaks[a,1])) #Time difference between peaks (*10^-4). 
+        IPD.append(-20 * mt.log10(abs(peaks[a,0]/peaks[a,1]))*2*np.pi*sfreq) #IPD = ILD*2πf
+
 
     for b in range(int(numsamples/2)):
-        ILD[b,int(azimuth[x])] = -10 * mt.log10(np.abs(codebook[a,1,b])/np.abs(codebook[a,0,b])) #ILD (following eq 6 from the paper) (in dB)
-        IPD[b,int(azimuth[x])] = np.angle((codebook[a,1,b]/codebook[a,0,b]), deg=False) #IPD in radians (following eq 7 from the paper)
-        #print('x' + str(x) + 'a' + str(a) + 'b' + str(b))
-        #ILD.append(a1[a])
-        #IPD.append(a2[a])
+        ILDc[int(idealazimuth[x]), b] = -10 * mt.log10(np.abs(codebook[a,1,b])/np.abs(codebook[a,0,b])) #ILD (following eq 6 from the paper) (in dB)
+        IPDc[int(idealazimuth[x]), b] = np.angle((codebook[a,1,b]/codebook[a,0,b]), deg=False) #IPD in radians (following eq 7 from the paper)
     x+=1
 
 
 
+#DIRECTION ESTIMATION (eq.11 from the paper)
+dir = []
+for b in range(360):
+    dir.append( np.angle(min(ILDc[b])/ILD[b]) + (ILD[b]/min(ILDc[b])) - 2*np.cos(IPD[b] - min(IPDc[b])) )  #Azimuth estimation for every TF bin
+    if dir[b] > 360: #To discard outliers
+        dir[b] = b
+#probar para todos los azimuths de los que tienes codebook y quedarte con el que te da menor coste. 
+#Más adelante podemos mirar de hacerlo con algoritmos de optimización tipo Least Squares o así... (encontrar el phi (azimuth) 
+#que minimiza la función de coste dada por (11)
+
+plt.plot(dir)
+plt.show()
+
 #PLOTS
 fig, (ax1, ax2) = plt.subplots(2,1)
-axx1 = ax1.pcolormesh(ILD)
-axx2 = ax2.pcolormesh(IPD, cmap=plt.cm.get_cmap('hsv'))
+axx1 = ax1.pcolormesh(ILDc.swapaxes(-1,0)) #Inverted axis to have the plot we want
+axx2 = ax2.pcolormesh(IPDc.swapaxes(-1,0), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
 ax1.set(ylabel='Frequency (kHz)', title='KU100')
 ax2.set(xlabel='\u03C6 (º)', ylabel='Frequency (kHz)')
 
 axxx1 = fig.colorbar(axx1, ax=ax1, aspect=6)
 axxx2 = fig.colorbar(axx2, ax=ax2, aspect=6) #, ticks=[-np.pi/2, 0, -np.pi/2])
-axxx1.set_label('ILD (dB)')
-axxx2.set_label('IPD (rad)')
+axxx1.set_label('ILD Codebook (dB)')
+axxx2.set_label('IPD Codebook (rad)')
 #plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0), useMathText=True) #To simplify yaxis format
 #plt.setp((ax1, ax2), xticks=[-90, -45, 0, 45, 90]) #To control the lower xaxis bins
 plt.subplots_adjust(hspace = 0.25) #Adjust height between subplots
