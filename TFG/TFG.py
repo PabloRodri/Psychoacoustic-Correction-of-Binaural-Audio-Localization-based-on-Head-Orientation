@@ -103,9 +103,8 @@ for a in ind_azim:
 #DIRECTION ESTIMATION (eq.11 from the paper)
 dir = []
 for b in range(360):
-    dir.append( np.angle(min(ILDc[b])/ILD[b]) + (ILD[b]/min(ILDc[b])) - 2*np.cos(IPD[b] - min(IPDc[b])) )  #Azimuth estimation for every TF bin
-    if dir[b] > 360: #To discard outliers
-        dir[b] = b
+    dir.append( np.angle(min(ILDc[b])/ILD[b]) + (ILD[b]/np.mean(ILDc[b])) - 2*np.cos(IPD[b] - np.mean(IPDc[b])) )  #Azimuth estimation for every TF bin
+
 #probar para todos los azimuths de los que tienes codebook y quedarte con el que te da menor coste. 
 #Más adelante podemos mirar de hacerlo con algoritmos de optimización tipo Least Squares o así... (encontrar el phi (azimuth) 
 #que minimiza la función de coste dada por (11)
