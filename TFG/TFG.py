@@ -32,14 +32,25 @@ binaural_L = scipy.signal.fftconvolve(data,audios[2211,0,:]) #Convolve it with t
 binaural_R = scipy.signal.fftconvolve(data,audios[2211,1,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
 #2211 for 90º, 1123 for 45º, 3103 for 135º, 5523 for -45º
 binaural = np.asarray([binaural_L, binaural_R]) #.swapaxes(-1,0) to put the L/R channel first
-#sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', abs(binaural), samplerate) #Save into a WAV file
+#sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', binaural.swapaxes(-1,0), samplerate) #Save into a WAV file
 
+
+"""
+plt.plot(data, label="Input (LNG_VocalLaugh_25.wav)", linewidth=0.5,  marker='o', markersize=1)
+plt.plot(binaural_L, label="Left Output", linewidth=0.5,  marker='o', markersize=1)
+plt.plot(binaural_R, label="Right Output", linewidth=0.5,  marker='o', markersize=1)
+plt.legend()
+plt.title('Before and after convolution')
+plt.show()
+"""
 
 
 #DFT WINDOWING
-BINAURAL_L = scipy.signal.stft(binaural, samplerate, nperseg=1000) #STFT of the binaural input to convert it to the time-freq domain 
-BINAURAL_R = scipy.signal.stft(binaural, samplerate, nperseg=1000) #STFT of the binaural input to convert it to the time-freq domain 
+BINAURAL_L = scipy.signal.stft(binaural_L, samplerate) #STFT of the binaural input to convert it to the time-freq domain    #nperseg=256 by default
+BINAURAL_R = scipy.signal.stft(binaural_R, samplerate) #STFT of the binaural input to convert it to the time-freq domain 
 BINAURAL = np.asarray([binaural_L, binaural_R])
+#sf.write('C:/Users/pablo/Desktop/resultadobinauralpostwindowing.wav', BINAURAL.swapaxes(-1,0), samplerate) #Save into a WAV file
+#print(np.allclose(binaural, BINAURAL))
 
 
 
