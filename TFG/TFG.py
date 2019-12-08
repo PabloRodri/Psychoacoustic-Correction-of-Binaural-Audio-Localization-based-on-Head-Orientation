@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import scipy.signal
 import soundfile as sf
 from pysofaconventions import *
-
+from cmath import e, pi, sin, cos
 
 
 #FILE
@@ -23,34 +23,6 @@ sfreq = int(sofa.getSamplingRate()) #samplingRateUnits = sofa.getSamplingRateUni
 numfiles = len(audios)
 numchannels = len(audios[0])
 numsamples = len(audios[0][0])
-
-
-
-#RENDER WITH A FILE TO CREATE BINAURAL AUDIO
-data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\LNG_VocalLaugh_25.wav') #Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
-binaural_L = scipy.signal.fftconvolve(data,audios[2211,0,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
-binaural_R = scipy.signal.fftconvolve(data,audios[2211,1,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
-#2211 for 90º, 1123 for 45º, 3103 for 135º, 5523 for -45º
-binaural = np.asarray([binaural_L, binaural_R]) #.swapaxes(-1,0) to put the L/R channel first
-#sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', binaural.swapaxes(-1,0), samplerate) #Save into a WAV file
-
-
-"""
-plt.plot(data, label="Input (LNG_VocalLaugh_25.wav)", linewidth=0.5,  marker='o', markersize=1)
-plt.plot(binaural_L, label="Left Output", linewidth=0.5,  marker='o', markersize=1)
-plt.plot(binaural_R, label="Right Output", linewidth=0.5,  marker='o', markersize=1)
-plt.legend()
-plt.title('Before and after convolution')
-plt.show()
-"""
-
-
-#DFT WINDOWING
-BINAURAL_L = scipy.signal.stft(binaural_L, samplerate) #STFT of the binaural input to convert it to the time-freq domain    #nperseg=256 by default
-BINAURAL_R = scipy.signal.stft(binaural_R, samplerate) #STFT of the binaural input to convert it to the time-freq domain 
-BINAURAL = np.asarray([binaural_L, binaural_R])
-#sf.write('C:/Users/pablo/Desktop/resultadobinauralpostwindowing.wav', BINAURAL.swapaxes(-1,0), samplerate) #Save into a WAV file
-#print(np.allclose(binaural, BINAURAL))
 
 
 
@@ -74,7 +46,6 @@ for x in range(numfiles):
     #Codebook of HRTFs, ordered by audiofile
     codebook[x,0] = np.fft.fft(audios[x,0])
     codebook[x,1] = np.fft.fft(audios[x,1])
-
 
 
 #ILD and IPD CALCULATION
@@ -103,7 +74,6 @@ for a in ind_azim:
         ITD.append(10**(-4)*(tpeaks[a,0]-tpeaks[a,1])) #Time difference between peaks (*10^-4). 
         IPD.append(-20 * mt.log10(abs(peaks[a,0]/peaks[a,1]))*2*np.pi*sfreq) #IPD = ILD*2πf
 
-
     for b in range(int(numsamples/2)):
         ILDc[int(idealazimuth[x]), b] = -10 * mt.log10(np.abs(codebook[a,1,b])/np.abs(codebook[a,0,b])) #ILD (following eq 6 from the paper) (in dB)
         IPDc[int(idealazimuth[x]), b] = np.angle((codebook[a,1,b]/codebook[a,0,b]), deg=False) #IPD in radians (following eq 7 from the paper)
@@ -111,16 +81,77 @@ for a in ind_azim:
 
 
 
+#RENDER WITH A FILE TO CREATE BINAURAL AUDIO
+#data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\audiocheck.net_whitenoisegaussian.wav') #Open a mono wav gaussian noise.
+data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\LNG_VocalLaugh_25.wav') #Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
+binaural_L = scipy.signal.fftconvolve(data,audios[2211,0,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
+binaural_R = scipy.signal.fftconvolve(data,audios[2211,1,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
+#2211 for 90º, 1123 for 45º, 3103 for 135º, 5523 for -45º
+binaural = np.asarray([binaural_L, binaural_R]) #.swapaxes(-1,0) to put the L/R channel first
+#sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', binaural.swapaxes(-1,0), samplerate) #Save into a WAV file
+
+#DFT WINDOWING
+
+BINAURAL_L = scipy.signal.stft(binaural_L, samplerate) #STFT of the binaural input to convert it to the time-freq domain    #nperseg=256 by default
+BINAURAL_R = scipy.signal.stft(binaural_R, samplerate) #STFT of the binaural input to convert it to the time-freq domain 
+BINAURAL = np.asarray([binaural_L, binaural_R])
+
+MU, LAMBDA, Sxx = scipy.signal.spectrogram(BINAURAL, samplerate)
+BINAURAL = np.swapaxes(Sxx, 1, 2)
+_, _, Sxx_phase = scipy.signal.spectrogram(binaural, samplerate, mode='angle')
+BINAURAL_phase = np.swapaxes(Sxx_phase, 1, 2)
+#sf.write('C:/Users/pablo/Desktop/resultadobinauralpostwindowing.wav', BINAURAL.swapaxes(-1,0), samplerate) #Save into a WAV file
+#print(np.allclose(binaural, BINAURAL))
+
+#plt.pcolormesh(LAMBDA, MU, 10*np.log10(Sxx[0]))
+#plt.show()
+
+
+#print('Hi World')
+'''
 #DIRECTION ESTIMATION (eq.11 from the paper)
+ILDi = -20 * mt.log10(abs(np.amax(BINAURAL[0])/np.amax(BINAURAL[1]))) 
+IPDi = -20 * mt.log10(abs(np.amax(BINAURAL[0])/np.amax(BINAURAL[1])))*2*np.pi*samplerate
 dir = []
 for b in range(360):
-    dir.append( np.angle(min(ILDc[b])/ILD[b]) + (ILD[b]/np.mean(ILDc[b])) - 2*np.cos(IPD[b] - np.mean(IPDc[b])) )  #Azimuth estimation for every TF bin
+    dir.append(  )  #Azimuth estimation for every TF bin
+'''
 
-#probar para todos los azimuths de los que tienes codebook y quedarte con el que te da menor coste. 
-#Más adelante podemos mirar de hacerlo con algoritmos de optimización tipo Least Squares o así... (encontrar el phi (azimuth) 
-#que minimiza la función de coste dada por (11)
+#PHI[:] = ind_azim[:]
+#MU = range(int(numsamples/2))
 
-plt.plot(dir)
+''''
+for lambda in LAMBDA: #Time index
+    for mu in MU: #Frequency index
+        #Input signal differences (eqs.4-5)
+        ILD = abs(np.amax(BINAURAL[1])/np.amax(BINAURAL[0]))
+        IPD = ILD*2*np.pi*sfreq  #IPD(lambda,mu) = ILD(lambda,mu)*2πf
+        for phi in PHI:  #ind_azim a.k.a. file number
+            #Codebook differences (eqs.6-7)
+            ILDh[mu, phi] = np.abs(codebook[phi,1,mu])/np.abs(codebook[phi,0,mu])
+            IPDh[mu, phi] = np.angle((codebook[phi,1,mu]/codebook[phi,0,mu]), deg=False)
+            F.append(  np.angle(ILDh[mu,phi]/ILD) + (ILD/ILDh[mu,phi]) - 2*np.cos(IPD - IPDh[mu,phi])  ) #Azimuth estimation for every TF bin (output needs to be a complex number)
+        phi_orig[lambda, mu] = np.min(F) #phi which gives the minimum F
+'''
+ILD = np.zeros((len(LAMBDA), len(MU)))
+IPD = np.zeros((len(LAMBDA), len(MU)))
+IPD2 = np.zeros((len(LAMBDA), len(MU)))
+for lamb in range(len(LAMBDA)): #Time index
+    for mu in range(len(MU)): #Frequency index
+        #Input signal differences (eqs.4-5)
+        ILD[lamb, mu] = abs(BINAURAL[1,lamb,mu]/BINAURAL[0,lamb,mu])
+        IPD[lamb, mu] = BINAURAL_phase[1,lamb,mu]/BINAURAL_phase[0,lamb,mu] #HE DE COMPARAR CUAL DE LOS DOS ES MEJOR, SEGUIR PARA ALANTE Y QUIZÁS LO DESCUBRO. SINÓ MAIL.
+        IPD2[lamb, mu] = BINAURAL_phase[1,lamb,mu]-BINAURAL_phase[0,lamb,mu]
+        '''for phi in range(len(PHI)):  #ind_azim a.k.a. file number
+            #Codebook differences (eqs.6-7)
+            ILDh[mu, phi] = np.abs(codebook[phi,1,mu])/np.abs(codebook[phi,0,mu])
+            IPDh[mu, phi] = np.angle((codebook[phi,1,mu]/codebook[phi,0,mu]), deg=False)
+            F.append(  np.angle(ILDh[mu,phi]/ILD) + (ILD/ILDh[mu,phi]) - 2*np.cos(IPD - IPDh[mu,phi])  ) #Azimuth estimation for every TF bin (output needs to be a complex number)
+        phi_orig[lamb, mu] = np.min(F) #phi which gives the minimum F
+        '''
+plt.plot(IPD2)
+
+#plt.plot(dir)
 plt.show()
 
 #PLOTS
