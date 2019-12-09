@@ -5,6 +5,7 @@ import scipy.signal
 import soundfile as sf
 from pysofaconventions import *
 from cmath import e, pi, sin, cos
+np.seterr(divide='ignore', invalid='ignore') #To avoid "divide by zero" or "divide by NaN" errors
 
 
 #FILE
@@ -20,9 +21,9 @@ sP = sourcePositions.filled(sourcePositions.mean()) #To unmask the masked array 
 audios = sofa.getDataIR() # Read the data and create data array (8802, 2, 256)
 #receiverPos = sofa.getReceiverPositionValues() to get the receiver ears position
 sfreq = int(sofa.getSamplingRate()) #samplingRateUnits = sofa.getSamplingRateUnits() if I want the units of the sampling frequency
-numfiles = len(audios)
+numfiles = MU_cb = len(audios)
 numchannels = len(audios[0])
-numsamples = len(audios[0][0])
+numsamples = PHI = len(audios[0][0])
 
 
 
@@ -104,6 +105,8 @@ BINAURAL_phase = np.swapaxes(Sxx_phase, 1, 2)
 #print(np.allclose(binaural, BINAURAL))
 
 #plt.pcolormesh(LAMBDA, MU, 10*np.log10(Sxx[0]))
+#plt.xlabel('Time (λ)')
+#plt.ylabel('Frequency (μ)')
 #plt.show()
 
 
@@ -136,23 +139,53 @@ for lambda in LAMBDA: #Time index
 ILD = np.zeros((len(LAMBDA), len(MU)))
 IPD = np.zeros((len(LAMBDA), len(MU)))
 IPD2 = np.zeros((len(LAMBDA), len(MU)))
+ILDh = np.zeros((len(MU), PHI))
+IPDh = np.zeros((len(MU), PHI))
+F = np.zeros((PHI))
+F2 = np.zeros((PHI))
+phi_orig = np.zeros((len(LAMBDA), len(MU)))
+phi_orig2 = np.zeros((len(LAMBDA), len(MU)))
 for lamb in range(len(LAMBDA)): #Time index
     for mu in range(len(MU)): #Frequency index
         #Input signal differences (eqs.4-5)
         ILD[lamb, mu] = abs(BINAURAL[1,lamb,mu]/BINAURAL[0,lamb,mu])
-        IPD[lamb, mu] = BINAURAL_phase[1,lamb,mu]/BINAURAL_phase[0,lamb,mu] #HE DE COMPARAR CUAL DE LOS DOS ES MEJOR, SEGUIR PARA ALANTE Y QUIZÁS LO DESCUBRO. SINÓ MAIL.
+        IPD[lamb, mu] = float(BINAURAL_phase[1,lamb,mu])/BINAURAL_phase[0,lamb,mu] #float to prevent floor-division -> floor(int)/0
         IPD2[lamb, mu] = BINAURAL_phase[1,lamb,mu]-BINAURAL_phase[0,lamb,mu]
-        '''for phi in range(len(PHI)):  #ind_azim a.k.a. file number
+        '''
+            for phi in range(PHI):  #ind_azim a.k.a. file number
             #Codebook differences (eqs.6-7)
             ILDh[mu, phi] = np.abs(codebook[phi,1,mu])/np.abs(codebook[phi,0,mu])
             IPDh[mu, phi] = np.angle((codebook[phi,1,mu]/codebook[phi,0,mu]), deg=False)
-            F.append(  np.angle(ILDh[mu,phi]/ILD) + (ILD/ILDh[mu,phi]) - 2*np.cos(IPD - IPDh[mu,phi])  ) #Azimuth estimation for every TF bin (output needs to be a complex number)
-        phi_orig[lamb, mu] = np.min(F) #phi which gives the minimum F
+            F[phi] = np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD[lamb, mu] - IPDh[mu,phi]) #Azimuth estimation for every TF bin (output needs to be a complex number)
+            F2[phi] = np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD2[lamb, mu] - IPDh[mu,phi]) #Azimuth estimation for every TF bin (output needs to be a complex number)
         '''
-plt.plot(IPD2)
+        phi = 0
+        ILDh[mu] = [np.abs(codebook[phi,1,mu])/np.abs(codebook[phi,0,mu]) for phi in range(PHI)]
+        IPDh[mu] = [np.angle((codebook[phi,1,mu]/codebook[phi,0,mu]), deg=False) for phi in range(PHI)]
+        F = [np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD[lamb, mu] - IPDh[mu,phi]) for phi in range(PHI)] #Azimuth estimation for every TF bin (output needs to be a complex number)
+        F2 = [np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD2[lamb, mu] - IPDh[mu,phi]) for phi in range(PHI)] #Azimuth estimation for every TF bin (output needs to be a complex number)
+        
+        phi_orig[lamb, mu] = np.min(F) #phi which gives the minimum F
+        phi_orig2[lamb, mu] = np.min(F2) #phi which gives the minimum F
+       
+fig, (ax1, ax2) = plt.subplots(2,1)
+ax1.plot(np.swapaxes(phi_orig, 0, 1))
+ax2.plot(np.swapaxes(phi_orig2, 0, 1))
+axx1 = ax1.pcolormesh(LAMBDA, MU, np.swapaxes(phi_orig, 0, 1), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
+axx2 = ax2.pcolormesh(LAMBDA, MU, np.swapaxes(phi_orig2, 0, 1), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
+ax1.set(ylabel='Frequency (μ)', title='KU100')
+ax2.set(xlabel='Time (λ)', ylabel='Frequency (μ)')
 
-#plt.plot(dir)
+axxx1 = fig.colorbar(axx1, ax=ax1, aspect=6)
+axxx2 = fig.colorbar(axx2, ax=ax2, aspect=6) #, ticks=[-np.pi/2, 0, -np.pi/2])
+axxx1.set_label('\u03C6' + 'orig')
+axxx2.set_label('\u03C6' + 'orig 2')
+#plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0), useMathText=True) #To simplify yaxis format
+#plt.setp((ax1, ax2), xticks=[-90, -45, 0, 45, 90]) #To control the lower xaxis bins
+plt.subplots_adjust(hspace = 0.25) #Adjust height between subplots
 plt.show()
+
+
 
 #PLOTS
 fig, (ax1, ax2) = plt.subplots(2,1)
