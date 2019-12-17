@@ -3,6 +3,7 @@ import math as mt
 import matplotlib.pyplot as plt
 import scipy.signal
 import soundfile as sf
+import time as tttt
 from pysofaconventions import *
 from cmath import e, pi, sin, cos
 np.seterr(divide='ignore', invalid='ignore') #To avoid "divide by zero" or "divide by NaN" errors
@@ -49,6 +50,7 @@ for x in range(numfiles):
     codebook[x,1] = np.fft.fft(audios[x,1])
 
 
+'''
 #ILD and IPD CALCULATION
 #Taking only samples with zero elevation
 ind_azim = []
@@ -79,7 +81,7 @@ for a in ind_azim:
         ILDc[int(idealazimuth[x]), b] = -10 * mt.log10(np.abs(codebook[a,1,b])/np.abs(codebook[a,0,b])) #ILD (following eq 6 from the paper) (in dB)
         IPDc[int(idealazimuth[x]), b] = np.angle((codebook[a,1,b]/codebook[a,0,b]), deg=False) #IPD in radians (following eq 7 from the paper)
     x+=1
-
+'''
 
 
 #RENDER WITH A FILE TO CREATE BINAURAL AUDIO
@@ -92,114 +94,96 @@ binaural = np.asarray([binaural_L, binaural_R]) #.swapaxes(-1,0) to put the L/R 
 #sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', binaural.swapaxes(-1,0), samplerate) #Save into a WAV file
 
 #DFT WINDOWING
-
 BINAURAL_L = scipy.signal.stft(binaural_L, samplerate) #STFT of the binaural input to convert it to the time-freq domain    #nperseg=256 by default
 BINAURAL_R = scipy.signal.stft(binaural_R, samplerate) #STFT of the binaural input to convert it to the time-freq domain 
-BINAURAL = np.asarray([binaural_L, binaural_R])
-
-MU, LAMBDA, Sxx = scipy.signal.spectrogram(BINAURAL, samplerate)
+BINAURAL_LR = np.asarray([binaural_L, binaural_R])
+MU, LAMBDA, Sxx = scipy.signal.spectrogram(BINAURAL_LR, samplerate, mode='complex')
 BINAURAL = np.swapaxes(Sxx, 1, 2)
-_, _, Sxx_phase = scipy.signal.spectrogram(binaural, samplerate, mode='angle')
-BINAURAL_phase = np.swapaxes(Sxx_phase, 1, 2)
 #sf.write('C:/Users/pablo/Desktop/resultadobinauralpostwindowing.wav', BINAURAL.swapaxes(-1,0), samplerate) #Save into a WAV file
-#print(np.allclose(binaural, BINAURAL))
-
-#plt.pcolormesh(LAMBDA, MU, 10*np.log10(Sxx[0]))
-#plt.xlabel('Time (λ)')
-#plt.ylabel('Frequency (μ)')
-#plt.show()
-
-
-#print('Hi World')
 '''
-#DIRECTION ESTIMATION (eq.11 from the paper)
-ILDi = -20 * mt.log10(abs(np.amax(BINAURAL[0])/np.amax(BINAURAL[1]))) 
-IPDi = -20 * mt.log10(abs(np.amax(BINAURAL[0])/np.amax(BINAURAL[1])))*2*np.pi*samplerate
-dir = []
-for b in range(360):
-    dir.append(  )  #Azimuth estimation for every TF bin
+plt.pcolormesh(LAMBDA, MU, 10*np.log10(abs(Sxx[0])))
+plt.xlabel('Time (λ)')
+plt.ylabel('Frequency (μ)')
+plt.show()
 '''
+t1 = tttt.time()
 
-#PHI[:] = ind_azim[:]
-#MU = range(int(numsamples/2))
-
-''''
-for lambda in LAMBDA: #Time index
-    for mu in MU: #Frequency index
-        #Input signal differences (eqs.4-5)
-        ILD = abs(np.amax(BINAURAL[1])/np.amax(BINAURAL[0]))
-        IPD = ILD*2*np.pi*sfreq  #IPD(lambda,mu) = ILD(lambda,mu)*2πf
-        for phi in PHI:  #ind_azim a.k.a. file number
-            #Codebook differences (eqs.6-7)
-            ILDh[mu, phi] = np.abs(codebook[phi,1,mu])/np.abs(codebook[phi,0,mu])
-            IPDh[mu, phi] = np.angle((codebook[phi,1,mu]/codebook[phi,0,mu]), deg=False)
-            F.append(  np.angle(ILDh[mu,phi]/ILD) + (ILD/ILDh[mu,phi]) - 2*np.cos(IPD - IPDh[mu,phi])  ) #Azimuth estimation for every TF bin (output needs to be a complex number)
-        phi_orig[lambda, mu] = np.min(F) #phi which gives the minimum F
-'''
 ILD = np.zeros((len(LAMBDA), len(MU)))
 IPD = np.zeros((len(LAMBDA), len(MU)))
-IPD2 = np.zeros((len(LAMBDA), len(MU)))
 ILDh = np.zeros((len(MU), PHI))
 IPDh = np.zeros((len(MU), PHI))
 F = np.zeros((PHI))
-F2 = np.zeros((PHI))
 phi_orig = np.zeros((len(LAMBDA), len(MU)))
-phi_orig2 = np.zeros((len(LAMBDA), len(MU)))
+#FOR IMPROVED
 for lamb in range(len(LAMBDA)): #Time index
     for mu in range(len(MU)): #Frequency index
         #Input signal differences (eqs.4-5)
-        ILD[lamb, mu] = abs(BINAURAL[1,lamb,mu]/BINAURAL[0,lamb,mu])
-        IPD[lamb, mu] = float(BINAURAL_phase[1,lamb,mu])/BINAURAL_phase[0,lamb,mu] #float to prevent floor-division -> floor(int)/0
-        IPD2[lamb, mu] = BINAURAL_phase[1,lamb,mu]-BINAURAL_phase[0,lamb,mu]
-        '''
-            for phi in range(PHI):  #ind_azim a.k.a. file number
-            #Codebook differences (eqs.6-7)
-            ILDh[mu, phi] = np.abs(codebook[phi,1,mu])/np.abs(codebook[phi,0,mu])
-            IPDh[mu, phi] = np.angle((codebook[phi,1,mu]/codebook[phi,0,mu]), deg=False)
-            F[phi] = np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD[lamb, mu] - IPDh[mu,phi]) #Azimuth estimation for every TF bin (output needs to be a complex number)
-            F2[phi] = np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD2[lamb, mu] - IPDh[mu,phi]) #Azimuth estimation for every TF bin (output needs to be a complex number)
-        '''
+        ILD[lamb, mu] = np.abs(BINAURAL[1,lamb,mu]/BINAURAL[0,lamb,mu])
+        IPD[lamb, mu] = np.angle(BINAURAL[1,lamb,mu]) - np.angle(BINAURAL[0,lamb,mu]) #float to prevent floor-division -> floor(int)/0   #We use the second part of the eq as it's in rad and not in grad as the other one
+        #Codebook differences (eqs.6-7)
         phi = 0
         ILDh[mu] = [np.abs(codebook[phi,1,mu])/np.abs(codebook[phi,0,mu]) for phi in range(PHI)]
-        IPDh[mu] = [np.angle((codebook[phi,1,mu]/codebook[phi,0,mu]), deg=False) for phi in range(PHI)]
+        IPDh[mu] = [np.angle(codebook[phi,1,mu]) - np.angle(codebook[phi,0,mu]) for phi in range(PHI)] #We use the second part of the eq as it's in rad and not in grad as the other one
         F = [np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD[lamb, mu] - IPDh[mu,phi]) for phi in range(PHI)] #Azimuth estimation for every TF bin (output needs to be a complex number)
-        F2 = [np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD2[lamb, mu] - IPDh[mu,phi]) for phi in range(PHI)] #Azimuth estimation for every TF bin (output needs to be a complex number)
         
         phi_orig[lamb, mu] = np.min(F) #phi which gives the minimum F
-        phi_orig2[lamb, mu] = np.min(F2) #phi which gives the minimum F
-       
-fig, (ax1, ax2) = plt.subplots(2,1)
-ax1.plot(np.swapaxes(phi_orig, 0, 1))
-ax2.plot(np.swapaxes(phi_orig2, 0, 1))
-axx1 = ax1.pcolormesh(LAMBDA, MU, np.swapaxes(phi_orig, 0, 1), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
-axx2 = ax2.pcolormesh(LAMBDA, MU, np.swapaxes(phi_orig2, 0, 1), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
-ax1.set(ylabel='Frequency (μ)', title='KU100')
-ax2.set(xlabel='Time (λ)', ylabel='Frequency (μ)')
+        #print('lambda:' + str(lamb) + ' mu:' + str(mu))
+''' #FOR NORMAL
+for lamb in range(15): #Time index
+    for mu in range(len(MU)): #Frequency index
+        #Input signal differences (eqs.4-5)
+        ILD[lamb, mu] = np.abs(BINAURAL[1,lamb,mu]/BINAURAL[0,lamb,mu])
+        IPD[lamb, mu] = np.angle(BINAURAL[1,lamb,mu]) - np.angle(BINAURAL[0,lamb,mu]) #float to prevent floor-division -> floor(int)/0   #We use the second part of the eq as it's in rad and not in grad as the other one
+        #Codebook differences (eqs.6-7)
+        for phi in range(PHI): #Frequency index
+            ILDh[mu] = np.abs(codebook[phi,1,mu])/np.abs(codebook[phi,0,mu])
+            IPDh[mu] = np.angle(codebook[phi,1,mu]) - np.angle(codebook[phi,0,mu]) #We use the second part of the eq as it's in rad and not in grad as the other one
+            F[phi] = np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,phi]) - 2*np.cos(IPD[lamb, mu] - IPDh[mu,phi]) #Azimuth estimation for every TF bin (output needs to be a complex number)
+        
+        phi_orig[lamb, mu] = np.min(F) #phi which gives the minimum F
+        #print('lambda:' + str(lamb) + ' mu:' + str(mu))
+'''
+t2 = tttt.time()    
 
-axxx1 = fig.colorbar(axx1, ax=ax1, aspect=6)
-axxx2 = fig.colorbar(axx2, ax=ax2, aspect=6) #, ticks=[-np.pi/2, 0, -np.pi/2])
-axxx1.set_label('\u03C6' + 'orig')
-axxx2.set_label('\u03C6' + 'orig 2')
-#plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0), useMathText=True) #To simplify yaxis format
-#plt.setp((ax1, ax2), xticks=[-90, -45, 0, 45, 90]) #To control the lower xaxis bins
-plt.subplots_adjust(hspace = 0.25) #Adjust height between subplots
-plt.show()
+print(t2-t1)
 
+#for improved: 59.6130530834198
+#for improved sin prints: 50.38822388648987
+#for: 59.65979218482971
+#for, fixed abs: 56.1263484954834
+#for, fixed abs & no prints: 48.043715476989746
+#for improved, fixed abs & no prints: 40.789695024490356
 
+#Total time: 17,784864552815755‬ minutes
+#Total time2: 13,680182230472565‬ minutes
+#Total time 3 (if using laptop): 25,6325592 minutes
 
 #PLOTS
-fig, (ax1, ax2) = plt.subplots(2,1)
-axx1 = ax1.pcolormesh(ILDc.swapaxes(-1,0)) #Inverted axis to have the plot we want
-axx2 = ax2.pcolormesh(IPDc.swapaxes(-1,0), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
-ax1.set(ylabel='Frequency (kHz)', title='KU100')
-ax2.set(xlabel='\u03C6 (º)', ylabel='Frequency (kHz)')
+plt.pcolormesh(LAMBDA, MU, np.swapaxes(phi_orig, 0, 1), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
+plt.title('pcolormesh KU100')
+plt.xlabel('Time (λ)')
+plt.ylabel('Frequency (μ)')
+plt.colorbar(aspect=6)
+plt.show()
 
-axxx1 = fig.colorbar(axx1, ax=ax1, aspect=6)
-axxx2 = fig.colorbar(axx2, ax=ax2, aspect=6) #, ticks=[-np.pi/2, 0, -np.pi/2])
-axxx1.set_label('ILD Codebook (dB)')
-axxx2.set_label('IPD Codebook (rad)')
+print('This is the end')
+'''
+plt.pcolormesh(LAMBDA, MU, np.swapaxes(phi_orig, 0, 1), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
+plt.title('plot KU100')
+plt.xlabel('Time? (λ)')
+plt.ylabel('Frequency? (μ)')
+plt.show()
+'''
+
+#fig, (ax1, ax2) = plt.subplots(2,1)
+#ax1.plot(np.swapaxes(phi_orig, 0, 1))
+#plt.pcolormesh(LAMBDA, MU, np.swapaxes(phi_orig, 0, 1), cmap=plt.cm.get_cmap('hsv')) #Inverted axis to have the plot we want
+#ax1.set(ylabel='Frequency (μ)', title='KU100')
+#ax2.set(xlabel='Time (λ)', ylabel='Frequency (μ)')
+#axxx1 = fig.colorbar(axx1, ax=ax1, aspect=6)
+#axxx2 = fig.colorbar(axx2, ax=ax2, aspect=6) #, ticks=[-np.pi/2, 0, -np.pi/2])
+#axxx1.set_label('\u03C6' + 'orig')
+#axxx2.set_label('\u03C6' + 'orig 2')
 #plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0), useMathText=True) #To simplify yaxis format
 #plt.setp((ax1, ax2), xticks=[-90, -45, 0, 45, 90]) #To control the lower xaxis bins
-plt.subplots_adjust(hspace = 0.25) #Adjust height between subplots
-plt.show()
-print("End")
+#plt.subplots_adjust(hspace = 0.25) #Adjust height between subplots
