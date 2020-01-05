@@ -14,7 +14,11 @@ print('Starting...')
 
 #FILE
 #Set audio files directory
-sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\KU100_44K_16bit_256tap_FIR_SOFA.sofa','r') #sofa.printSOFAGlobalAttributes() to obtain info about how the SOFA file was "recorded"
+
+#sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\KU100_44K_16bit_256tap_FIR_SOFA.sofa','r') #sofa.printSOFAGlobalAttributes() to obtain info about how the SOFA file was "recorded"
+sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic.sofa','r') #sofa.printSOFAGlobalAttributes() to obtain info about how the SOFA file was "recorded"
+#sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\NFHRIR_CIRC360_SOFA\HRIR_CIRC360_NF100.sofa','r') #sofa.printSOFAGlobalAttributes() to obtain info about how the SOFA file was "recorded"
+
 if sofa.isValid(): #Check validity
     print("SOFA file is valid")
 else:
@@ -31,15 +35,13 @@ numsamples = len(audios[0][0])
 
 
 
-#CODEBOOK CREATION
+#CODEBOOK CREATION of HRTFs, ordered by audiofile
 codebook = np.zeros((numfiles, numchannels, numsamples),dtype=complex)
-for x in range(numfiles): 
-    #DFT sample frequencies, ordered by audiofile
-    #codebook_f[x] = np.fft.fftfreq(audios[x,0].shape[-1]) #L and R share the same values
+codebook[:,0] = np.fft.fft(audios[:,0]) #run by "numfiles"
+codebook[:,1] = np.fft.fft(audios[:,1])
+#DFT sample frequencies, ordered by audiofile
+#codebook_f[:] = np.fft.fftfreq(audios[:,0].shape[-1]) #L and R share the same values
 
-    #Codebook of HRTFs, ordered by audiofile
-    codebook[x,0] = np.fft.fft(audios[x,0])
-    codebook[x,1] = np.fft.fft(audios[x,1])
 
 
 #RULE OUT ELEVATION
@@ -47,21 +49,38 @@ for x in range(numfiles):
 ind_azim = []
 azimuth = []
 for x in range(numfiles):
-    if (sP[:][x][1] == 0) == True:
-        ind_azim.append(x)
+    #if (sP[:][x][1] == 0) == True:
+        #ind_azim.append(x)
+    if (sP[:][x][1] == 0) == True: #v2 - if there are more than one distance values
+        if (sP[:][x][2] == 1) == True:
+            ind_azim.append(x)
+#azimuth = np.ones((len(ind_azim))) #Quadrant correction v2.5
+#x = 0
 for a in ind_azim:
     sPaz = float(sP[a][0])
-    #if sPaz > 180: #Quadrant correction
+    #if sPaz > 180: #Quadrant correction v1
         #sPaz = int(-(sPaz-180))
-    azimuth.append(sPaz) #Create array with the ideal angles for the plot
+    if sPaz > 180: #Quadrant correction v2
+        sPaz = int(sPaz-180)
+    elif sPaz <= 180:
+        sPaz = int(sPaz+180)
+        if sPaz == 360:
+            sPaz = 0
+    #if x < 180: #Quadrant correction v2.5
+        #azimuth[x+180] = np.round(sPaz)
+    #else:
+        #azimuth[x-180] = np.round(sPaz)
+    #x+=1
+    #azimuth.append(sPaz) #Create array with the ideal angles for the plot
+    azimuth.append(np.round(sPaz)) #Create array with the ideal angles for the plot
 
 
 
 #RENDER WITH A FILE TO CREATE BINAURAL AUDIO
 #data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\audiocheck.net_whitenoisegaussian.wav') #Open a mono wav gaussian noise.
 data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\LNG_VocalLaugh_25.wav') #Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
-binaural_L = scipy.signal.fftconvolve(data,audios[2211,0,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
-binaural_R = scipy.signal.fftconvolve(data,audios[2211,1,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
+binaural_L = scipy.signal.fftconvolve(data,audios[990,0,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation #1st 990(90)/945(45)/875(-45)   2nd 90
+binaural_R = scipy.signal.fftconvolve(data,audios[990,1,:]) #Convolve it with the hrtf of 90º azimuth and 0º elevation
 #2211 for 90º, 1123 for 45º, 3103 for 135º, 5523 for -45º
 binaural = np.asarray([binaural_L, binaural_R]) #.swapaxes(-1,0) to put the L/R channel first
 #sf.write('C:/Users/pablo/Desktop/resultadobinaural.wav', binaural.swapaxes(-1,0), samplerate) #Save into a WAV file
@@ -80,12 +99,21 @@ print('Codebook ILDs and IPDs calculation...   Elapsed time = ' + str(t2-t1))
 #Codebook ILDs and IPDs
 ILDh = np.zeros((len(MU), len(PHI)))
 IPDh = np.zeros((len(MU), len(PHI)))
-for lamb in range(5): #Time index                       #len(LAMBDA)
+'''for lamb in range(5): #Time index                       #len(LAMBDA)
     for mu in range(len(MU)): #Frequency index
         #Codebook differences (eqs.6-7)
         for x in range(len(ind_azim)): #ind_azim = [12, 35, 57, 79, 101, 123, 145, 167, 189, 211, 233, 255, 277, 310, ...]     azimuth = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, ...]
             ILDh[mu, int(azimuth[x])] = np.abs(codebook[ind_azim[x],1,mu])/np.abs(codebook[ind_azim[x],0,mu])
             IPDh[mu, int(azimuth[x])] = np.angle(codebook[ind_azim[x],1,mu]) - np.angle(codebook[ind_azim[x],0,mu]) #We use the second part of the eq as it's in rad and not in grad as the other one
+'''
+for lamb in range(5): #Time index                       #len(LAMBDA)
+    for mu in range(len(MU)): #Frequency index
+        #Codebook differences (eqs.6-7)
+        #ind_azim = [12, 35, 57, 79, 101, 123, 145, 167, 189, 211, 233, 255, 277, 310, ...]     azimuth = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, ...]
+            ILDh[mu, :] = np.abs(codebook[ind_azim[:],1,mu])/np.abs(codebook[ind_azim[:],0,mu])
+            IPDh[mu, :] = np.angle(codebook[ind_azim[:],1,mu]) - np.angle(codebook[ind_azim[:],0,mu]) #We use the second part of the eq as it's in rad and not in grad as the other one
+
+
 
 t3 = tttt.time()  
 print('Input file ILDs and IPDs + Phi_origin calculation...   Elapsed time = ' + str(t3-t1))
@@ -94,7 +122,7 @@ ILD = np.zeros((len(LAMBDA), len(MU)))
 IPD = np.zeros((len(LAMBDA), len(MU)))
 F = np.zeros((len(PHI)))
 phi_orig = np.zeros((len(LAMBDA), len(MU)))
-for lamb in range(5): #Time index                       #len(LAMBDA)
+'''for lamb in range(5): #Time index                       #len(LAMBDA)
     for mu in range(len(MU)): #Frequency index
         #Input signal differences (eqs.4-5)
         ILD[lamb, mu] = np.abs(BINAURAL[1,lamb,mu]/BINAURAL[0,lamb,mu])
@@ -104,8 +132,20 @@ for lamb in range(5): #Time index                       #len(LAMBDA)
                             #phi_orig[lamb, mu] = np.unravel_index(np.argmin(F, axis=None), F.shape)
                             #F[phi_orig[lamb, mu]]
         #print('lambda:' + str(lamb) + ' mu:' + str(mu))
+'''
+for lamb in range(5): #Time index                       #len(LAMBDA)
+                        #MU Frequency index
+    #Input signal differences (eqs.4-5)
+    ILD[lamb, :] = np.abs(BINAURAL[1,lamb,:]/BINAURAL[0,lamb,:])
+    IPD[lamb, :] = np.angle(BINAURAL[1,lamb,:]) - np.angle(BINAURAL[0,lamb,:]) #float to prevent floor-division -> floor(int)/0   #We use the second part of the eq as it's in rad and not in grad as the other one
+    for mu in range(len(MU)): #Frequency index
+        F = [np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu, phi]) - 2*np.cos(IPD[lamb, mu] - IPDh[mu, phi]) for phi in PHI] #Azimuth estimation for every TF bin (output needs to be a complex number
+        phi_orig[lamb, mu] = np.argmin(F) #phi index which gives the minimum F
+                            #phi_orig[lamb, mu] = np.unravel_index(np.argmin(F, axis=None), F.shape)
+                            #F[phi_orig[lamb, mu]]
+        #print('lambda:' + str(lamb) + ' mu:' + str(mu))
 
-avg_angle = np.rad2deg( circmean(np.deg2rad(phi_orig[:5])) )                    #phi_orig[:5]
+avg_angle = np.rad2deg( circmean(np.deg2rad(phi_orig[:5])) )                    #phi_orig[:5]!!!
 print('Origin phi is: ' + str(avg_angle))
 
 t4 = tttt.time()    
