@@ -106,7 +106,7 @@ IPDh = np.zeros((len(MU), len(PHI)))
             ILDh[mu, int(azimuth[x])] = np.abs(codebook[ind_azim[x],1,mu])/np.abs(codebook[ind_azim[x],0,mu])
             IPDh[mu, int(azimuth[x])] = np.angle(codebook[ind_azim[x],1,mu]) - np.angle(codebook[ind_azim[x],0,mu]) #We use the second part of the eq as it's in rad and not in grad as the other one
 '''
-for lamb in range(5): #Time index                       #len(LAMBDA)
+for lamb in range(len(LAMBDA)): #Time index                       #len(LAMBDA)
     for mu in range(len(MU)): #Frequency index
         #Codebook differences (eqs.6-7)
         #ind_azim = [12, 35, 57, 79, 101, 123, 145, 167, 189, 211, 233, 255, 277, 310, ...]     azimuth = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, ...]
@@ -133,19 +133,19 @@ phi_orig = np.zeros((len(LAMBDA), len(MU)))
                             #F[phi_orig[lamb, mu]]
         #print('lambda:' + str(lamb) + ' mu:' + str(mu))
 '''
-for lamb in range(5): #Time index                       #len(LAMBDA)
+for lamb in range(len(LAMBDA)): #Time index                       #len(LAMBDA)
                         #MU Frequency index
     #Input signal differences (eqs.4-5)
     ILD[lamb, :] = np.abs(BINAURAL[1,lamb,:]/BINAURAL[0,lamb,:])
     IPD[lamb, :] = np.angle(BINAURAL[1,lamb,:]) - np.angle(BINAURAL[0,lamb,:]) #float to prevent floor-division -> floor(int)/0   #We use the second part of the eq as it's in rad and not in grad as the other one
     for mu in range(len(MU)): #Frequency index
-        F = [np.angle(ILDh[mu,phi]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu, phi]) - 2*np.cos(IPD[lamb, mu] - IPDh[mu, phi]) for phi in PHI] #Azimuth estimation for every TF bin (output needs to be a complex number
-        phi_orig[lamb, mu] = np.argmin(F) #phi index which gives the minimum F
+        F[:] = np.angle(ILDh[mu,:]/ILD[lamb, mu]) + (ILD[lamb, mu]/ILDh[mu,:]) - 2*np.cos(IPD[lamb, mu] - IPDh[mu,:]) #Azimuth estimation for every TF bin (output needs to be a complex number)
+        phi_orig[lamb, mu] = np.argmin(F.tolist()) #phi index which gives the minimum F
                             #phi_orig[lamb, mu] = np.unravel_index(np.argmin(F, axis=None), F.shape)
                             #F[phi_orig[lamb, mu]]
         #print('lambda:' + str(lamb) + ' mu:' + str(mu))
 
-avg_angle = np.rad2deg( circmean(np.deg2rad(phi_orig[:5])) )                    #phi_orig[:5]!!!
+avg_angle = np.rad2deg( circmean(np.deg2rad(phi_orig[:])) )                    #phi_orig[:5]!!!
 print('Origin phi is: ' + str(avg_angle))
 
 t4 = tttt.time()    
