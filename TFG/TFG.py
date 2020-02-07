@@ -42,7 +42,10 @@ print('Starting...\n ---------------')
 #Set audio files directory
 #sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\KU100_44K_16bit_256tap_FIR_SOFA.sofa','r')
 #sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic.sofa','r') 
+#sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic_0_5m.sofa','r')
 sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic_1m.sofa','r')
+#sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic_2m.sofa','r')
+#sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic_3m.sofa','r')
 #sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\NFHRIR_CIRC360_SOFA\HRIR_CIRC360_NF100.sofa','r')
 if sofa.isValid(): #Check validity
     print("SOFA file is valid")
@@ -113,7 +116,9 @@ for a in ind_azim:
 #QU_KEMARfull:                                  990 for 90º,  945 for 45º,  875 for -45º
 #NFHRIR:                                        90 for 90º
 '''
-ANGLE = 45  #//////////////////////////////////////////////////////////////////////////////////////////
+ANGLE = 5  #/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+HTangle = 185 #Fake headtracker input angle /////////////////////////////////////////////////////////////////////////////////////////////////////
+
 inputidx = list(sourcePositions[:,0]).index(ANGLE)
 
 #data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\audiocheck.net_whitenoisegaussian.wav') #Open a mono wav gaussian noise.
@@ -133,7 +138,6 @@ BINAURAL_LR = np.asarray([binaural_L, binaural_R])
 MU, LAMBDA, Y = scipy.signal.spectrogram(BINAURAL_LR, samplerate, mode='complex')
 BINAURAL = np.swapaxes(Y, 1, 2)'''
 MU, LAMBDA, Y = scipy.signal.stft(binaural, sfreq, nperseg = numsamples) #Y to stft domain convertion with the same window size used above
-#sf.write('C:/Users/pablo/Desktop/resultadobinauralpostwindowing.wav', BINAURAL.swapaxes(-1,0), samplerate) #Save into a WAV file
 
 t2 = tttt.time()  
 print('Elapsed time = ' + str(t2-t1) + '\n ---------------')
@@ -249,7 +253,6 @@ print('Cue modification with headtracker...')
 delta_phi = np.zeros((len(LAMBDA), len(MU)))
 phi_dest = np.zeros((len(LAMBDA), len(MU)), dtype=int)
 
-HTangle = 320 #Fake headtracker input angle ///////////////////////////////////////////////////////////////
 delta_phi[:,:] = round(angle_mean - HTangle, 2)
 print('Input audio modified to ' + str(float(HTangle)) + 'º (dif ' + str(abs(round(angle_mean - HTangle, 2))) + ')')
 phi_dest[:] = phi_orig[:] - delta_phi[:]
@@ -258,7 +261,7 @@ for x in range(len(LAMBDA)): #Threshold limiter for number over 359 or below 0  
         if phi_dest[x, y] >= 360:
             phi_dest[x, y] = phi_dest[x, y]-360
         elif phi_dest[x, y] < 0:
-            phi_dest[x, y] = phi_dest[x, y]+360
+            phi_dest[x, y] = phi_dest[x, y]+360         #to do usar módulo x % 360
 
 deltaIPD = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
 G_IPDr = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
@@ -266,24 +269,23 @@ G_IPDl = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
 G_ILDr = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
 G_ILDl = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
 for m in range(len(MU)): #Frequency index
-    deltaIPD[:,m] = IPDcb[m,phi_dest[:,m]] - IPDcb[m,phi_orig[:,m]]                                              #"IPDcb = IPDcb * (2*np.pi)" to desnormalize?
+    deltaIPD[:,m] = IPDcb[m,phi_dest[:,m]] - IPDcb[m,phi_orig[:,m]]
 
-    G_IPDr[:,m] = np.exp(-(deltaIPD[:,m]/2))    #eq13 from the paper
-    G_IPDl[:,m] = np.exp(deltaIPD[:,m]/2)       #eq14 from the paper
+    G_IPDr[:,m] = np.exp(-1j*(deltaIPD[:,m]/2))    #eq13 from the paper
+    G_IPDl[:,m] = np.exp(1j*(deltaIPD[:,m]/2))       #eq14 from the paper
 
-    G_ILDr[:,m] = np.transpose(np.abs(codebook[phi_dest[:,m],1,m])/np.abs(codebook[phi_orig[:,m],1,m]))             #eq15 from the paper    #To transpose or not to transpose????
-    G_ILDl[:,m] = np.transpose(np.abs(codebook[phi_dest[:,m],0,m])/np.abs(codebook[phi_orig[:,m],0,m]))             #eq15 from the paper    #To transpose or not to transpose????
+    G_ILDr[:,m] = np.abs(codebook[phi_dest[:,m],1,m])/np.abs(codebook[phi_orig[:,m],1,m])             #eq15 from the paper
+    G_ILDl[:,m] = np.abs(codebook[phi_dest[:,m],0,m])/np.abs(codebook[phi_orig[:,m],0,m])             #eq15 from the paper
 
 Gr = G_ILDr * G_IPDr    #eq12 from the paper
 Gl = G_ILDl * G_IPDl    #eq12 from the paper
-
 
 G = np.asarray([np.transpose(Gl), np.transpose(Gr)]) #Transpose to mantain the original variable format
 Ymod = Y * G
 
 ibinaural_t, ibinaural = scipy.signal.istft(Ymod, sfreq, nperseg = numsamples) #stft to Y domain convertion with the same window size used above
 #assert np.allclose( binaural, ibinaural[:,:len(binaural[0])] ) #stop if allclose is False
-sf.write('C:/Users/pablo/Desktop/corrected_' + str(sourcePositions[inputidx,0]) + 'to' + str(float(HTangle)) + '.wav', ibinaural[:,:len(binaural[0])].swapaxes(-1,0), samplerate) #Save into a WAV file
+sf.write('C:/Users/pablo/Desktop/corrected_' + str(sourcePositions[inputidx,0]) + 'to' + str(float(HTangle)) + ' dif=' + str(delta_phi[1,1]) + '.wav', ibinaural[:,:len(binaural[0])].swapaxes(-1,0), samplerate) #Save into a WAV file
 
 t999 = tttt.time()   
 print('Elapsed time = ' + str(t999-t5) + '\n ---------------')
