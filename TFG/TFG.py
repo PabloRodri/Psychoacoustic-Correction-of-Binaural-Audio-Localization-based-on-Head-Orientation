@@ -7,7 +7,7 @@ import time as tttt
 from scipy.stats import circmean
 from pysofaconventions import *
 from cmath import e, pi, sin, cos
-#np.seterr(divide='ignore', invalid='ignore') #To avoid "divide by zero" or "divide by NaN" errors
+#np.seterr(divide='ignore', invalid='ignore') # To avoid "divide by zero" or "divide by NaN" errors
 
 def circmedian(angs, unit='rad'):
     # from invalid index to scalar variable.
@@ -41,12 +41,13 @@ print('Starting...\n ---------------')
 #FILE
 #Set audio files directory
 #sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\KU100_44K_16bit_256tap_FIR_SOFA.sofa','r')
+#sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\NFHRIR_CIRC360_SOFA\HRIR_CIRC360_NF100.sofa','r')
 #sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic.sofa','r') 
 #sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic_0_5m.sofa','r')
 sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic_1m.sofa','r')
 #sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic_2m.sofa','r')
 #sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\QU_KEMAR_anechoic_3m.sofa','r')
-#sofa = SOFAFile(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\NFHRIR_CIRC360_SOFA\HRIR_CIRC360_NF100.sofa','r')
+
 if sofa.isValid(): #Check validity
     print("SOFA file is valid")
 else:
@@ -57,7 +58,7 @@ sfreq = int(sofa.getSamplingRate())
 #fs = sfreq[0]
 sourcePositions = sofa.getVariableValue('SourcePosition') 
 angles = sourcePositions[:,0]
-#sP = sourcePositions.filled(sourcePositions.mean()) #To unmask the masked array and convert it into a ndarray
+#sP = sourcePositions.filled(sourcePositions.mean()) # To unmask the masked array and convert it into a ndarray
 '''#Other SOFA commands
 #sofa.printSOFAGlobalAttributes() to obtain info about how the SOFA file was "recorded"
 #sofa.getPositionVariableInfo('SourcePosition') prints the info (units, coordinates): ('degree, degree, meter', 'spherical')
@@ -66,7 +67,7 @@ angles = sourcePositions[:,0]
 '''
 audios = sofa.getDataIR() # Read the data and create data array (8802, 2, 256)
 numangles, numchannels, numsamples = audios.shape
-PHI = numangles #Number of files
+PHI = numangles # Number of files
 
 
 #CODEBOOK CREATION of HRTFs, ordered by audiofile
@@ -116,17 +117,16 @@ for a in ind_azim:
 #QU_KEMARfull:                                  990 for 90º,  945 for 45º,  875 for -45º
 #NFHRIR:                                        90 for 90º
 '''
-ANGLE = 5  #/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-HTangle = 185 #Fake headtracker input angle /////////////////////////////////////////////////////////////////////////////////////////////////////
+ANGLE = 25  #///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+HTangle = 65 # Fake headtracker input angle ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 inputidx = list(sourcePositions[:,0]).index(ANGLE)
-
-#data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\audiocheck.net_whitenoisegaussian.wav') #Open a mono wav gaussian noise.
-data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\LNG_VocalLaugh_25.wav') #Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
-binaural_L = scipy.signal.fftconvolve(data,audios[inputidx,0,:]) #Convolve it with the hrtf of xxº azimuth and 0º elevation 
-binaural_R = scipy.signal.fftconvolve(data,audios[inputidx,1,:]) #Convolve it with the hrtf of xxº azimuth and 0º elevation
+#data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\Otras\audiocheck.net_whitenoisegaussian.wav') # Open a mono wav gaussian noise.
+data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\LNG_VocalLaugh_25.wav') # Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
+binaural_L = scipy.signal.fftconvolve(data,audios[inputidx,0,:]) # Convolve it with the hrtf of xxº azimuth and 0º elevation 
+binaural_R = scipy.signal.fftconvolve(data,audios[inputidx,1,:]) # Convolve it with the hrtf of xxº azimuth and 0º elevation
 binaural = np.asarray([binaural_L, binaural_R]) #.swapaxes(-1,0) to put the L/R channel first
-sf.write('C:/Users/pablo/Desktop/audio_' + str(sourcePositions[inputidx,0]) + '.wav', binaural.swapaxes(-1,0), samplerate) #Save into a WAV file
+sf.write('C:/Users/pablo/Desktop/audio_' + str(sourcePositions[inputidx,0]) + '.wav', binaural.swapaxes(-1,0), samplerate) # Save into a WAV file
 print('Input audio convolved to ' + str(sourcePositions[inputidx,0]) + 'º')
 
 
@@ -137,7 +137,7 @@ BINAURAL_R = scipy.signal.stft(binaural_R, samplerate/2) #STFT of the binaural i
 BINAURAL_LR = np.asarray([binaural_L, binaural_R])
 MU, LAMBDA, Y = scipy.signal.spectrogram(BINAURAL_LR, samplerate, mode='complex')
 BINAURAL = np.swapaxes(Y, 1, 2)'''
-MU, LAMBDA, Y = scipy.signal.stft(binaural, sfreq, nperseg = numsamples) #Y to stft domain convertion with the same window size used above
+MU, LAMBDA, Y = scipy.signal.stft(binaural, sfreq, nperseg = numsamples) # Y to stft domain convertion with the same window size used above
 
 t2 = tttt.time()  
 print('Elapsed time = ' + str(t2-t1) + '\n ---------------')
@@ -156,7 +156,61 @@ for lamb in range(len(LAMBDA)): #Time index                       #len(LAMBDA)
 '''
 ILDcb = np.transpose(np.abs(codebook[:,1,:])/np.abs(codebook[:,0,:])) # ILDcb has shape len(MU), numangles
 IPDcb = np.transpose(np.angle(codebook[:,1,:]) - np.angle(codebook[:,0,:])) # IPDcb has shape len(MU), numangles
-IPDcb = IPDcb % (2*np.pi) #Normalization between (0,2π)
+IPDcb = IPDcb % (2*np.pi) # Normalization between (0,2π)
+
+'''#ANALYTIC MODEL
+c = 340 # Speed of sound (m/s)
+a = 8.75 # Head radius (cm)
+f_0 = c / a
+theta_min = 150 # θ grad
+betha_min = 0.1 # β
+fn = np.arange(numsamples//2+1)
+#f_mu = fn*(sfreq/len(fn)) #is the frequency corresponding to the frequency bin
+f_mu = np.angle(codebook[0,0,:])
+H = np.zeros((numangles, numchannels, numsamples//2+1),dtype=complex)
+for angle in range(numangles):
+    thetaL = 90 - angle # Angle of sound incidence relative to the ear L
+    thetaR = 90 + angle # Angle of sound incidence relative to the ear R
+    #γ (gamma lowercase)
+    gamma_yL = (1+(betha_min/2)) + (1-(betha_min/2)) * cos((thetaL/theta_min)*180)
+    gamma_yR = (1+(betha_min/2)) + (1-(betha_min/2)) * cos((thetaR/theta_min)*180) 
+    #Γ (gamma uppercase)
+    if thetaL < 90:
+        gamma_rL = (-a/c)*cos(thetaL)
+    else:
+        gamma_rL = (a/c)*(abs(thetaL)-90)*(np.pi/180)
+    if thetaR < 90:
+        gamma_rR = (-a/c)*cos(thetaR)
+    else:
+        gamma_rR = (a/c)*(abs(thetaR)-90)*(np.pi/180)
+    H[angle,0,:] = ( ( 1+(1j*2*np.pi*np.rad2deg(f_mu[:])*gamma_yL)/(2*f_0) )/( 1+(1j*2*np.pi*np.rad2deg(f_mu[:]))/(2*f_0) ) * np.exp(-1j*(2*np.pi*np.rad2deg(f_mu[:])*gamma_rL)))
+    H[angle,1,:] = ( ( 1+(1j*2*np.pi*np.rad2deg(f_mu[:])*gamma_yR)/(2*f_0) )/( 1+(1j*2*np.pi*np.rad2deg(f_mu[:]))/(2*f_0) ) * np.exp(-1j*(2*np.pi*np.rad2deg(f_mu[:])*gamma_rR)))
+
+
+#PLOTS para sacar el plot del codebook
+ILD = np.zeros((int(numsamples/2), numangles)) #Only of the first half of samples as it's symmetrical
+IPD = np.zeros((int(numsamples/2), numangles)) #Only of the first half of samples as it's symmetrical
+x=0
+for a in range(numangles):
+    for b in range(int(numsamples/2)):
+        ILD[b,a] = -10 * mt.log10(np.abs(H[a,1,b])/np.abs(H[a,0,b])) #ILD (following eq 6 from the paper) (in dB)
+        IPD[b,a] = np.angle((H[a,1,b]/H[a,0,b]), deg=False) #IPD in radians (following eq 7 from the paper)
+    x+=1
+fig, (ax1, ax2) = plt.subplots(2,1)
+axx1 = ax1.pcolormesh(-ILD)
+axx2 = ax2.pcolormesh(-IPD, cmap=plt.cm.get_cmap('hsv'))
+ax1.set(ylabel='Frequency (Hz)', title='Analytic model')
+ax2.set(xlabel='\u03C6 (º)', ylabel='Frequency (Hz)')
+
+axxx1 = fig.colorbar(axx1, ax=ax1, aspect=6)
+axxx2 = fig.colorbar(axx2, ax=ax2, aspect=6) #, ticks=[-np.pi/2, 0, -np.pi/2])
+axxx1.set_label('ILD (dB)')
+axxx2.set_label('IPD (rad)')
+#plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0), useMathText=True) #To simplify yaxis format
+#plt.setp((ax1, ax2), xticks=[-90, -45, 0, 45, 90]) #To control the lower xaxis bins
+plt.subplots_adjust(hspace = 0.25) #Adjust height between subplots
+plt.show()
+'''
 
 t3 = tttt.time()  
 print('Elapsed time = ' + str(t3-t1) + '\n ---------------')
@@ -180,10 +234,10 @@ F = np.zeros((PHI))
 phi_orig = np.zeros((len(LAMBDA), len(MU)), dtype=int)
 ILDy = np.abs(Y[1, :,:])/np.abs(Y[0, :, :])
 IPDy = np.angle(Y[1, :,:]) - np.angle(Y[0, :, :])
-for lamb in range(len(LAMBDA)): #Time index                 #len(LAMBDA)
-    for mu in range(len(MU)): #Frequency index
+for lamb in range(len(LAMBDA)): # Time index                 #len(LAMBDA)
+    for mu in range(len(MU)): # Frequency index
         F[:] = ILDcb[mu, :] / ILDy[mu, lamb] + ILDy[mu, lamb] / ILDcb[mu, :] - 2*np.cos( IPDy[mu, lamb] - IPDcb[mu, :])
-        phi_orig[lamb, mu] = sourcePositions[int(np.argmin(F)), 0] #phi index which gives the minimum F
+        phi_orig[lamb, mu] = sourcePositions[int(np.argmin(F)), 0] # Phi index which gives the minimum F
 
 
 t4 = tttt.time()    
@@ -191,19 +245,19 @@ print('Elapsed time = ' + str(t4-t1) + '\n ---------------')
 print('Phi origin calculation...')
 #PHI ORIGIN CALCULATION
 ta1 = tttt.time()    
-angle_mean = round(np.rad2deg( circmean(np.deg2rad(phi_orig[:])) ),1) #Rounded to 1 decimal
+angle_mean = round(np.rad2deg( circmean(np.deg2rad(phi_orig[:])) ),1) # Rounded to 1 decimal
 ta2 = tttt.time()
 print('Estimated direction by mean: ' + str(angle_mean) + 'º' + ' in ' + str(ta2-ta1) + ' seconds')
 
 ta3 = tttt.time()
-p_o = np.round(phi_orig.flatten(),1) #2D phi_orig array into 1D (with 1 decimal)
+p_o = np.round(phi_orig.flatten(),1) # 2D phi_orig array into 1D (with 1 decimal)
 angle_median = float(circmedian(p_o, 'deg'))
 ta4 = tttt.time()
 print('Estimated direction by median: ' + str(angle_median) + 'º' + ' in ' + str(ta4-ta3) + ' seconds')
 
 ta5 = tttt.time()    
 hist, _, _ = plt.hist(p_o, bins=360)
-plt.close() #To delete hist plot
+plt.close() # To delete hist plot
 angle_hist = float(np.argmax(hist))
 ta6 = tttt.time()
 #plt.title("Phi_orig histogram")
@@ -256,36 +310,37 @@ phi_dest = np.zeros((len(LAMBDA), len(MU)), dtype=int)
 delta_phi[:,:] = round(angle_mean - HTangle, 2)
 print('Input audio modified to ' + str(float(HTangle)) + 'º (dif ' + str(abs(round(angle_mean - HTangle, 2))) + ')')
 phi_dest[:] = phi_orig[:] - delta_phi[:]
-for x in range(len(LAMBDA)): #Threshold limiter for number over 359 or below 0          #1s aprox of time performance is lost here
+phi_dest[:,:] = phi_dest[:,:] % 360 # Module of phi_dest to make the degrees cycle for >360 and <0
+'''for x in range(len(LAMBDA)): # Threshold limiter for number over 359 or below 0 (1s aprox of time performance is lost here)
     for y in range(len(MU)):
         if phi_dest[x, y] >= 360:
             phi_dest[x, y] = phi_dest[x, y]-360
         elif phi_dest[x, y] < 0:
-            phi_dest[x, y] = phi_dest[x, y]+360         #to do usar módulo x % 360
+            phi_dest[x, y] = phi_dest[x, y]+360         #to do usar módulo x % 360'''
 
 deltaIPD = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
 G_IPDr = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
 G_IPDl = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
 G_ILDr = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
 G_ILDl = np.zeros((len(LAMBDA), len(MU)), dtype=complex)
-for m in range(len(MU)): #Frequency index
+for m in range(len(MU)): # Frequency index
     deltaIPD[:,m] = IPDcb[m,phi_dest[:,m]] - IPDcb[m,phi_orig[:,m]]
 
-    G_IPDr[:,m] = np.exp(-1j*(deltaIPD[:,m]/2))    #eq13 from the paper
-    G_IPDl[:,m] = np.exp(1j*(deltaIPD[:,m]/2))       #eq14 from the paper
+    G_IPDr[:,m] = np.exp(-1j*(deltaIPD[:,m]/2))    # Eq13 from the paper
+    G_IPDl[:,m] = np.exp(1j*(deltaIPD[:,m]/2))       # Eq14 from the paper
 
-    G_ILDr[:,m] = np.abs(codebook[phi_dest[:,m],1,m])/np.abs(codebook[phi_orig[:,m],1,m])             #eq15 from the paper
-    G_ILDl[:,m] = np.abs(codebook[phi_dest[:,m],0,m])/np.abs(codebook[phi_orig[:,m],0,m])             #eq15 from the paper
+    G_ILDr[:,m] = np.abs(codebook[phi_dest[:,m],1,m])/np.abs(codebook[phi_orig[:,m],1,m])             # Eq15 from the paper
+    G_ILDl[:,m] = np.abs(codebook[phi_dest[:,m],0,m])/np.abs(codebook[phi_orig[:,m],0,m])             # Eq15 from the paper
 
-Gr = G_ILDr * G_IPDr    #eq12 from the paper
-Gl = G_ILDl * G_IPDl    #eq12 from the paper
+Gr = G_ILDr * G_IPDr    # Eq12 from the paper
+Gl = G_ILDl * G_IPDl    # Eq12 from the paper
 
-G = np.asarray([np.transpose(Gl), np.transpose(Gr)]) #Transpose to mantain the original variable format
+G = np.asarray([np.transpose(Gl), np.transpose(Gr)]) # Transpose to mantain the original variable format
 Ymod = Y * G
 
-ibinaural_t, ibinaural = scipy.signal.istft(Ymod, sfreq, nperseg = numsamples) #stft to Y domain convertion with the same window size used above
+ibinaural_t, ibinaural = scipy.signal.istft(Ymod, sfreq, nperseg = numsamples) # Stft to Y domain convertion with the same window size used above
 #assert np.allclose( binaural, ibinaural[:,:len(binaural[0])] ) #stop if allclose is False
-sf.write('C:/Users/pablo/Desktop/corrected_' + str(sourcePositions[inputidx,0]) + 'to' + str(float(HTangle)) + ' dif=' + str(delta_phi[1,1]) + '.wav', ibinaural[:,:len(binaural[0])].swapaxes(-1,0), samplerate) #Save into a WAV file
+sf.write('C:/Users/pablo/Desktop/corrected_' + str(sourcePositions[inputidx,0]) + 'to' + str(float(HTangle)) + ' dif=' + str(delta_phi[1,1]) + '.wav', ibinaural[:,:len(binaural[0])].swapaxes(-1,0), samplerate) # Save into a WAV file
 
 t999 = tttt.time()   
 print('Elapsed time = ' + str(t999-t5) + '\n ---------------')
