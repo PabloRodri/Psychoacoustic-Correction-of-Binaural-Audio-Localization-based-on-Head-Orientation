@@ -72,7 +72,7 @@ ANGLE = 25  #///////////////////////////////////////////////////////////////////
 HTangle = 65 # Fake headtracker input angle //////////////////////////////////////////////////////////////
 
 inputidx = list(sourcePositions[:,0]).index(ANGLE)
-data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\LNG_VocalLaugh_25.wav') # Open a mono wav file. I got this one from freesound https://freesound.org/people/Ryntjie/sounds/365061/ 
+data, samplerate = sf.read(r'C:\Users\pablo\source\repos\TFG\Muestras\LNG_VocalLaugh_25.wav') # Open a mono wav file.
 binaural_L = scipy.signal.fftconvolve(data,audios[inputidx,0,:]) # Convolve it with the hrtf of xxº azimuth and 0º elevation 
 binaural_R = scipy.signal.fftconvolve(data,audios[inputidx,1,:]) # Convolve it with the hrtf of xxº azimuth and 0º elevation
 binaural = np.asarray([binaural_L, binaural_R]) #.swapaxes(-1,0) to put the L/R channel first
